@@ -59,8 +59,18 @@ public class ActionTokenLoginResource {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid user_id").build();
         }
 
-		ActionTokenLogin token = createActionToken(
-			user, clientId, client.getRedirectUris().iterator().next());
+        if (client.getRole("ACESSO_LOGIN") == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("not_allowed", "The client %s does not have role %s.".formatted(clientId, "ACESSO_LOGIN")))
+                    .build();
+        }
+
+        if (!user.hasRole(client.getRole("ACESSO_LOGIN"))) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("not_allowed", "user %s does not have role %s for clientId %s".formatted(user.getId(), "ACESSO_LOGIN", clientId))).build();
+        }
+
+		ActionTokenLogin token = createActionToken(user, clientId, client.getRedirectUris().iterator().next());
 
 		String tokenUrl = getActionTokenUrl(token);
 
@@ -77,6 +87,8 @@ public class ActionTokenLoginResource {
 	private ActionTokenLogin createActionToken(UserModel user, String clientId, String redirectUri) {
 		int expirationInSecs = 120;
 		int absoluteExpirationInSecs = Time.currentTime() + expirationInSecs;
+        //remove wildcards path
+        redirectUri = redirectUri.replaceAll("/\\*$", "");
 		return new ActionTokenLogin(user.getId(), clientId, absoluteExpirationInSecs, false, redirectUri, null);
 	}
 
